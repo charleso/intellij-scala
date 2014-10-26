@@ -6,16 +6,18 @@ import com.intellij.openapi.progress.ProgressIndicator
 
 sealed trait SourceResolver {
   def toURL(groupId: String, artifactId: String, version: String): String
+  def append(s: String, s2: String): String =
+    (if (s.endsWith("/")) s else s + "/") + (if (s2.startsWith("/")) s2.substring(1) else s2)
 }
 
 case class IvyResolver(base: String) extends SourceResolver {
   override def toURL(groupId: String, artifactId: String, version: String): String =
-    base + groupId + "/" + artifactId + "/" + version + "/srcs/" + artifactId + "-sources.jar"
+    append(base, groupId) + "/" + artifactId + "/" + version + "/srcs/" + artifactId + "-sources.jar"
 }
 
 case class MavenResolver(base: String) extends SourceResolver {
   override def toURL(groupId: String, artifactId: String, version: String): String =
-    base + groupId.replace(".", "/") + "/" + artifactId + "/" + version + "/" + artifactId + "-" + version + "-sources.jar"
+    append(base, groupId.replace(".", "/")) + "/" + artifactId + "/" + version + "/" + artifactId + "-" + version + "-sources.jar"
 }
 
 class SBTSourceSearcher(l: List[SourceResolver]) extends SourceSearcher {
@@ -29,12 +31,12 @@ class SBTSourceSearcher(l: List[SourceResolver]) extends SourceSearcher {
         val url = resolver.toURL(groupId, artifactId, version)
         indicator.setText(s"Connecting to $url")
         val connection = new java.net.URL(url).openConnection().asInstanceOf[java.net.HttpURLConnection]
-        connection.setRequestMethod("HEAD")
-        if (connection.getResponseCode != 200) {
-          None
-        } else {
-          Some(url)
-        }
+        try {
+          connection.setRequestMethod("HEAD")
+          if (connection.getResponseCode != 200) None
+          else Some(url)
+        } finally
+          connection.disconnect()
     }.find(_.isDefined).flatten.orNull
   }
 }

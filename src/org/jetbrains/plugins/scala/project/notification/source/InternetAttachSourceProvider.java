@@ -49,8 +49,8 @@ public class InternetAttachSourceProvider implements AttachSourcesProvider {
 
   public InternetAttachSourceProvider(SourceSearcher... searchers) {
     List<SourceSearcher> s = new ArrayList<SourceSearcher>(2 + searchers.length);
-    s.add(new MavenCentralSourceSearcher());
-    s.add(new SonatypeSourceSearcher());
+//    s.add(new MavenCentralSourceSearcher());
+//    s.add(new SonatypeSourceSearcher());
     s.addAll(Arrays.asList(searchers));
     this.mySearchers = s.toArray(new SourceSearcher[s.size()]);
   }
@@ -93,6 +93,8 @@ public class InternetAttachSourceProvider implements AttachSourcesProvider {
     if (libraries.isEmpty()) return Collections.emptyList();
 
     String sourceFileName2 = jarName + "-sources.jar";
+    final File libSourceDir = getLibrarySourceDir();
+    File sourceFilePath = new File(libSourceDir, sourceFileName2);
 
     // Are we dealing with ivy?
     String fullJarName = jar.getPath();
@@ -101,7 +103,8 @@ public class InternetAttachSourceProvider implements AttachSourcesProvider {
       String[] split = fullJarName.split("/", -1);
       artifactId2 = split[split.length - 4] + "\n" + split[split.length - 3];
       version2 = jarName.substring(split[split.length - 3].length() + 1);
-      sourceFileName2 = fullJarName.substring(0, i) + "/srcs/" + jarName + "-sources.jar";
+      sourceFilePath = new File(fullJarName.substring(0, i) + "/srcs/" + jarName + "-sources.jar");
+      sourceFileName2 = sourceFilePath.getName();
     }
     final String artifactId = artifactId2;
     final String version = version2;
@@ -117,9 +120,7 @@ public class InternetAttachSourceProvider implements AttachSourcesProvider {
       }
     }
 
-    final File libSourceDir = getLibrarySourceDir();
-
-    final File sourceFile = new File(libSourceDir, sourceFileName);
+    final File sourceFile = sourceFilePath;
 
     if (sourceFile.exists()) {
       return Collections.<AttachSourcesAction>singleton(new LightAttachSourcesAction() {

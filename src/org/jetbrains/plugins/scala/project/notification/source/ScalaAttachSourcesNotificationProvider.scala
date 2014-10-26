@@ -11,6 +11,7 @@ import com.intellij.codeInsight.daemon.impl.AttachSourcesNotificationProvider
 import com.intellij.ide.highlighter.{JavaClassFileType, JavaFileType}
 import com.intellij.openapi.extensions.{ExtensionPointName, Extensions}
 import com.intellij.openapi.fileEditor.FileEditor
+import com.intellij.openapi.module.ModuleManager
 import com.intellij.openapi.project.{Project, ProjectBundle}
 import com.intellij.openapi.roots.{LibraryOrderEntry, OrderEntry, ProjectRootManager}
 import com.intellij.openapi.ui.Messages
@@ -76,12 +77,19 @@ class ScalaAttachSourcesNotificationProvider(myProject: Project, notifications: 
         }
       }
     }
-    actions.addAll(new InternetAttachSourceProvider(new SBTSourceSearcher(scala.List(
-      IvyResolver("https://ambiata-oss.s3.amazonaws.com/"),
-      MavenResolver("https://repository.cloudera.com/content/repositories/releases/"),
-      MavenResolver("https://repository.cloudera.com/artifactory/public/"),
-      MavenResolver("http://dl.bintray.com/scalaz/releases/")
-    ))).getActions(libraries, psiFile))
+    val resolvers = ModuleManager.getInstance(myProject).getModules.toList
+            .flatMap(m => Option(m.getOptionValue("sbt.resolvers")))
+            .map(_.split("\\,", -1).toList)
+            .flatMap(_.map(_.split("\\|", 3)(0).trim))
+            // Some of these can be to ~/.ivy2
+            .filter(_.startsWith("http"))
+            // Add both because we don't know what kind it is
+            .map(url => MavenResolver(url)) ++
+            // This is annoying, our Ivy resolvers are being lost
+            scala.List(
+              IvyResolver("https://ambiata-oss.s3.amazonaws.com/")
+            )
+    actions.addAll(new InternetAttachSourceProvider(new SBTSourceSearcher(resolvers)).getActions(libraries, psiFile))
     Collections.sort(actions, new Comparator[AttachSourcesProvider.AttachSourcesAction] {
       def compare(o1: AttachSourcesProvider.AttachSourcesAction, o2: AttachSourcesProvider.AttachSourcesAction): Int = {
         o1.getName.compareToIgnoreCase(o2.getName)
