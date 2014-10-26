@@ -20,6 +20,7 @@ import com.intellij.openapi.vfs.VirtualFile
 import com.intellij.psi.{PsiClass, PsiJavaFile, PsiFile, PsiManager}
 import com.intellij.ui.{EditorNotificationPanel, EditorNotifications, GuiUtils}
 import org.jetbrains.plugins.scala.lang.psi.api.ScalaFile
+import org.jetbrains.plugins.scala.project.notification.source
 
 /**
  * @author Alexander Podkhalyuzin
@@ -48,10 +49,10 @@ class ScalaAttachSourcesNotificationProvider(myProject: Project, notifications: 
     val sourceFile: VirtualFile = findSourceFile(file)
     var defaultAction: AttachSourcesProvider.AttachSourcesAction = null
     if (sourceFile != null) {
-      panel.setText(ProjectBundle.message("library.sources.not.attached"))
+      panel.setText("Library sources not attached")
       defaultAction = new AttachSourcesUtil.AttachJarAsSourcesAction(file, sourceFile, myProject)
     } else {
-      panel.setText(ProjectBundle.message("library.sources.not.found"))
+      panel.setText("Library sources not found")
       defaultAction = new AttachSourcesUtil.ChooseAndAttachSourcesAction(myProject, panel)
     }
 
@@ -75,6 +76,12 @@ class ScalaAttachSourcesNotificationProvider(myProject: Project, notifications: 
         }
       }
     }
+    actions.addAll(new InternetAttachSourceProvider(new SBTSourceSearcher(scala.List(
+      IvyResolver("https://ambiata-oss.s3.amazonaws.com/"),
+      MavenResolver("https://repository.cloudera.com/content/repositories/releases/"),
+      MavenResolver("https://repository.cloudera.com/artifactory/public/"),
+      MavenResolver("http://dl.bintray.com/scalaz/releases/")
+    ))).getActions(libraries, psiFile))
     Collections.sort(actions, new Comparator[AttachSourcesProvider.AttachSourcesAction] {
       def compare(o1: AttachSourcesProvider.AttachSourcesAction, o2: AttachSourcesProvider.AttachSourcesAction): Int = {
         o1.getName.compareToIgnoreCase(o2.getName)
@@ -97,7 +104,7 @@ class ScalaAttachSourcesNotificationProvider(myProject: Project, notifications: 
             def run() {
               SwingUtilities.invokeLater(new Runnable {
                 def run() {
-                  panel.setText(ProjectBundle.message("library.sources.not.found"))
+                  panel.setText("Library sources not found")
                 }
               })
             }
